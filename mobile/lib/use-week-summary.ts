@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DayKey } from "./date-range";
 import { setDayConfirmed } from "./day-confirmations";
+import { useAppState } from "./app-state";
 import { getWeekSummary } from "./weekly";
 import type { WeekSummary } from "./weekly-summary";
 
 /** Loads a week's summary, caching each week so switching tabs or weeks doesn't refetch. */
 export function useWeekSummary(weekOffset: number, enabled = true) {
-  const cache = useRef(new Map<number, WeekSummary>());
+  const { timeZone } = useAppState();
+  const cache = useRef(new Map<string, WeekSummary>());
   const latestRequest = useRef(0);
   const [summary, setSummary] = useState<WeekSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -15,14 +17,15 @@ export function useWeekSummary(weekOffset: number, enabled = true) {
   const load = useCallback(
     async (force = false) => {
       const request = ++latestRequest.current;
-      const cached = cache.current.get(weekOffset);
+      const key = `${timeZone}:${weekOffset}`;
+      const cached = cache.current.get(key);
       setSummary(cached ?? null);
       setError(null);
       if (cached && !force) return;
       setLoading(true);
       try {
-        const next = await getWeekSummary(weekOffset);
-        cache.current.set(weekOffset, next);
+        const next = await getWeekSummary(weekOffset, timeZone);
+        cache.current.set(key, next);
         // Ignore responses for a week the user has already navigated away from.
         if (request === latestRequest.current) setSummary(next);
       } catch (loadError) {
@@ -32,7 +35,7 @@ export function useWeekSummary(weekOffset: number, enabled = true) {
         if (request === latestRequest.current) setLoading(false);
       }
     },
-    [weekOffset],
+    [weekOffset, timeZone],
   );
 
   useEffect(() => {

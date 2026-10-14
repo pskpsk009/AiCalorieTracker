@@ -38,6 +38,7 @@ I built this project end to end by myself: UI, data model, authentication, stora
 | 🗓️ | **Day-by-day history** | Tap any day to see the meals (with times and food items) and walks you logged. |
 | ✅ | **"Log complete" days** | Mark a day's food log as complete, so the app can tell "ate nothing" apart from "didn't log". Averages use complete days only. |
 | ⚖️ | **Food vs. walking** | Logged food minus estimated walking calories, clearly labelled as a partial figure (it leaves out resting metabolism), never as a deficit or surplus. |
+| 🌍 | **Your time zone** | Set from the phone with one tap, or chosen by region and city. Today, weeks and meal times all follow it. |
 | 👤 | **BMI & weight history** | New users set their weight and height first. BMI is calculated live, and every saved weight is recorded with its date to show a history chart. |
 | 🔐 | **Accounts** | Email/password sign-up with a deep-link email confirmation (`getfit://auth/callback`), forgot-password reset by email, and change password (current password required). |
 
@@ -54,7 +55,7 @@ I built this project end to end by myself: UI, data model, authentication, stora
 | **Backend** | Supabase: Postgres, Auth, Storage, Edge Functions (Deno) |
 | **AI** | Google Gemini (multimodal, JSON response mode) |
 | **Security** | Postgres Row Level Security, private storage bucket, short-lived signed URLs |
-| **Testing** | Jest (`jest-expo`) unit tests for date boundaries and weekly aggregation |
+| **Testing** | Jest (`jest-expo`) unit tests for time zones, date boundaries and weekly aggregation |
 | **Tooling** | npm or Bun, Prettier, EAS Build |
 
 ---
@@ -105,7 +106,7 @@ These are the parts of the code I found most interesting to work through:
 - **Manual rollback across two tables.** Saving a meal writes a parent `meals` row and then its child `meal_items` rows. If inserting the items fails, the parent row is deleted, so the database never keeps a meal without items. ([`mobile/lib/meals.ts`](mobile/lib/meals.ts))
 - **Reliable AI calls.** The Edge Function checks the caller's Supabase JWT before doing any work. It requests JSON-only output from Gemini, retries `429`/`503`/`404` responses with linear backoff, and falls back to a second model if the first stays unavailable. Stray markdown fences are stripped before parsing. ([`supabase/functions/analyze-meal/index.ts`](supabase/functions/analyze-meal/index.ts))
 - **Defensive handling of AI output.** Model responses can't be trusted to be well-formed. Each value is coerced from string to number, checked with `Number.isFinite`, clamped to ≥ 0, and rounded before it reaches Postgres. A bad value produces a readable error naming the item and field. The response shape itself is also checked before use. ([`mobile/lib/meals.ts`](mobile/lib/meals.ts), [`mobile/lib/meal-analysis.ts`](mobile/lib/meal-analysis.ts))
-- **Timezone-correct days and weeks.** A naive `new Date()` comparison breaks near midnight when the device and the server are in different timezones. Every "day" in the app is an `Asia/Bangkok` calendar day, converted to exact UTC bounds for queries, and weeks run Monday to Sunday. Unit tests cover midnight, Sunday-to-Monday and year-end boundaries. ([`mobile/lib/date-range.ts`](mobile/lib/date-range.ts))
+- **Per-user time zones, including daylight saving.** The database stores UTC, but "today" means the user's local day. Each user picks a time zone (detected from the phone or chosen manually), and every local day is converted to exact UTC bounds before querying, even on 23- and 25-hour daylight-saving days, half-hour offsets, and days where a clock change skips midnight. Unit tests check every day of a year in 8 zones, plus midnight, Sunday-to-Monday and year-end boundaries. ([`mobile/lib/date-range.ts`](mobile/lib/date-range.ts), [`mobile/lib/timezone.ts`](mobile/lib/timezone.ts))
 - **Tested weekly aggregation.** The weekly numbers come from a pure function with no database access, so it is unit-tested directly: daily totals add up to weekly totals, duplicate records are counted once, and records outside the week are ignored. ([`mobile/lib/weekly-summary.ts`](mobile/lib/weekly-summary.ts))
 - **Honest numbers.** The app never fills gaps with sample data. A day with no meals is "not logged" unless the user marks it complete, averages only use complete days, burned calories are labelled as estimates, and food minus walking is never presented as a calorie deficit.
 - **Weight history recorded by the database.** A Postgres trigger records a dated measurement whenever the profile weight is saved, in the same transaction, so the history can't get out of sync with the profile. ([`supabase/migrations/`](supabase/migrations/))
@@ -141,7 +142,8 @@ get-fit-daily-main/
 │   │   ├── weight-history.ts    # Dated weight measurements
 │   │   ├── use-*.ts             # Hooks used by the Progress screen
 │   │   ├── app-state.tsx        # Global React context
-│   │   ├── date-range.ts        # Bangkok day / week bounds
+│   │   ├── date-range.ts        # Local day / week bounds in any time zone
+│   │   ├── timezone.ts          # Zone detection, validation, offsets, city list
 │   │   └── __tests__/           # Jest unit tests
 │   ├── App.tsx                  # Screen orchestrator
 │   └── styles.ts                # Shared design tokens
@@ -158,7 +160,7 @@ get-fit-daily-main/
 ## 🗄️ Data Model
 
 ```
-auth.users ──1:1── profiles          (name, weight_kg, height_cm)
+auth.users ──1:1── profiles          (name, weight_kg, height_cm, timezone)
      │
      ├──1:N── weight_measurements    (measured_on, weight_kg)   — one per day, written by a trigger
      ├──1:N── food_day_confirmations (day)                      — "food log complete" days
@@ -260,7 +262,8 @@ This is an active personal project. Here is what works today and what comes next
 - [x] "Food log complete" days to separate zero intake from missing data
 - [x] Profile-first onboarding, live BMI, and dated weight history
 - [x] Forgot-password and change-password flows
-- [x] Jest unit tests for date boundaries and weekly aggregation
+- [x] Per-user time zones (phone detection or manual choice), daylight-saving aware
+- [x] Jest unit tests for time zones, date boundaries and weekly aggregation
 
 **Next steps**
 - [ ] Estimated daily energy needs from BMR (Mifflin-St Jeor), with its assumptions shown, to give a fuller energy picture

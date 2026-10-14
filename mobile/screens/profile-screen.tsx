@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { bmiCategory, calculateBmi } from "../lib/profile";
 import { styles } from "../styles";
 import { BottomNav } from "./bottom-nav";
+import { TimeZonePicker } from "./timezone-picker";
 import { Button, Header } from "./shared";
 
 export function ProfileScreen({
@@ -14,6 +15,8 @@ export function ProfileScreen({
   onHome,
   onProgress,
   onChangePassword,
+  timeZone,
+  onChangeTimeZone,
   onSignOut,
   required = false,
 }: {
@@ -23,6 +26,8 @@ export function ProfileScreen({
   onHome: () => void;
   onProgress: () => void;
   onChangePassword: () => void;
+  timeZone: string;
+  onChangeTimeZone: (timeZone: string) => Promise<void>;
   onSignOut: () => Promise<void>;
   required?: boolean;
 }) {
@@ -108,6 +113,7 @@ export function ProfileScreen({
           onPress={save}
           secondary={saving}
         />
+        <TimeZonePicker timeZone={timeZone} onChange={onChangeTimeZone} />
         {!required && <Button label="Change password" onPress={onChangePassword} secondary />}
         <Button label={signingOut ? "Signing out..." : "Sign out"} onPress={signOut} secondary />
       </ScrollView>

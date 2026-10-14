@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useState,
   type PropsWithChildren,
@@ -7,6 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { AnalyzedMealItem } from "./meal-analysis";
+import { getAppTimeZone, setAppTimeZone } from "./timezone";
 
 export type Meal = {
   id: string;
@@ -42,6 +44,9 @@ type AppState = {
   setWeightKg: Dispatch<SetStateAction<number | null>>;
   heightCm: number | null;
   setHeightCm: Dispatch<SetStateAction<number | null>>;
+  /** IANA zone that defines "today" and the week. */
+  timeZone: string;
+  setTimeZone: (timeZone: string) => void;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -52,6 +57,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedMealItem[]>([]);
   const [weightKg, setWeightKg] = useState<number | null>(null);
   const [heightCm, setHeightCm] = useState<number | null>(null);
+  const [timeZone, setTimeZoneState] = useState(getAppTimeZone);
+  const setTimeZone = useCallback((next: string) => {
+    setAppTimeZone(next); // throws on an unknown zone, so state never holds one
+    setTimeZoneState(next);
+  }, []);
 
   return (
     <AppStateContext.Provider
@@ -66,6 +76,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         setWeightKg,
         heightCm,
         setHeightCm,
+        timeZone,
+        setTimeZone,
       }}
     >
       {children}

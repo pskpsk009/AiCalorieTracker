@@ -2,7 +2,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { Meal } from "../lib/app-state";
+import { useAppState, type Meal } from "../lib/app-state";
+import { timeOfDay } from "../lib/date-range";
 import { estimateWalkingCalories } from "../lib/walking";
 import { styles } from "../styles";
 import { Button, Header, PartialEnergyCard } from "./shared";
@@ -45,14 +46,8 @@ export function HomeScreen({
   const [savingWalking, setSavingWalking] = useState(false);
   const [walkingError, setWalkingError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [thailandTime, setThailandTime] = useState(() =>
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Bangkok",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date()),
-  );
+  const { timeZone } = useAppState();
+  const [clock, setClock] = useState(() => timeOfDay(new Date(), timeZone));
   const totals = useMemo(
     () =>
       meals.reduce(
@@ -73,20 +68,10 @@ export function HomeScreen({
     return () => clearInterval(interval);
   }, [walkingStatus]);
   useEffect(() => {
-    const clock = setInterval(
-      () =>
-        setThailandTime(
-          new Intl.DateTimeFormat("en-GB", {
-            timeZone: "Asia/Bangkok",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }).format(new Date()),
-        ),
-      60_000,
-    );
-    return () => clearInterval(clock);
-  }, []);
+    setClock(timeOfDay(new Date(), timeZone));
+    const timer = setInterval(() => setClock(timeOfDay(new Date(), timeZone)), 15_000);
+    return () => clearInterval(timer);
+  }, [timeZone]);
 
   const estimatedMinutes = Math.max(1, Math.round(totals.calories * 0.15));
   const timerText = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
@@ -248,7 +233,7 @@ export function HomeScreen({
                       : "Session in progress"}
                 </Text>
               </View>
-              <Text style={styles.thailandTime}>{thailandTime}</Text>
+              <Text style={styles.thailandTime}>{clock}</Text>
             </View>
             {walkingStatus === "idle" ? (
               <View style={styles.walkingAction}>

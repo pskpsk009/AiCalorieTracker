@@ -1,10 +1,12 @@
-import { bangkokDayKey, getBangkokWeek } from "../date-range";
+import { dayKey, getWeek } from "../date-range";
 import type { MealRecord } from "../meals";
 import type { WalkingRecord } from "../walking";
 import { summarizeWeek, weeklyInsights, type WeekSummaryInput } from "../weekly-summary";
 
+const BKK = "Asia/Bangkok";
+
 // Wednesday 2026-10-14 in Bangkok: Mon–Wed have happened, Thu–Sun are in the future.
-const week = getBangkokWeek(0, new Date("2026-10-14T05:00:00Z"));
+const week = getWeek(0, new Date("2026-10-14T05:00:00Z"), BKK);
 const [mon, tue, wed, thu] = week.days;
 
 let nextId = 0;
@@ -13,7 +15,7 @@ function meal(
   calories: number,
   macros = { protein: 0, carbs: 0, fat: 0 },
 ): MealRecord {
-  return { id: `meal-${nextId++}`, eatenAt, day: bangkokDayKey(eatenAt), calories, ...macros };
+  return { id: `meal-${nextId++}`, eatenAt, day: dayKey(eatenAt, BKK), calories, ...macros };
 }
 function walk(completedAt: string, durationSeconds: number, caloriesBurned: number): WalkingRecord {
   return {
@@ -21,7 +23,7 @@ function walk(completedAt: string, durationSeconds: number, caloriesBurned: numb
     userId: "user",
     createdAt: completedAt,
     completedAt,
-    day: bangkokDayKey(completedAt),
+    day: dayKey(completedAt, BKK),
     durationSeconds,
     caloriesBurned,
   };
@@ -194,7 +196,7 @@ describe("weeklyInsights", () => {
   });
 
   it("says so when nothing was recorded", () => {
-    const pastWeek = getBangkokWeek(-1, new Date("2026-10-14T05:00:00Z"));
+    const pastWeek = getWeek(-1, new Date("2026-10-14T05:00:00Z"), BKK);
     expect(weeklyInsights(summarizeWeek(input({ week: pastWeek })))).toEqual([
       "No meals logged this week.",
       "No walks recorded this week.",

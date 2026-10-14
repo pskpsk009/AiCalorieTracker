@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import type { Meal, MealItem } from "./app-state";
-import { bangkokDayKey, getThailandTodayBounds, type DateRange, type DayKey } from "./date-range";
+import { dayKey, getTodayBounds, type DateRange, type DayKey } from "./date-range";
 
 export type MealItemInput = {
   name: string;
@@ -97,7 +97,7 @@ export async function getMeals(): Promise<Meal[]> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
   if (!userData.user) throw new Error("Please sign in before loading meals.");
-  return getMealsWithItemsInRange(userData.user.id, getThailandTodayBounds());
+  return getMealsWithItemsInRange(userData.user.id, getTodayBounds());
 }
 
 /** Full meals (with their food items) in a range, newest first. */
@@ -131,6 +131,7 @@ export async function getMealsWithItemsInRange(userId: string, range: DateRange)
 export async function getMealRecordsInRange(
   userId: string,
   range: DateRange,
+  timeZone: string,
 ): Promise<MealRecord[]> {
   const { data, error } = await supabase
     .from("meals")
@@ -144,7 +145,7 @@ export async function getMealRecordsInRange(
   return data.map((meal) => ({
     id: meal.id,
     eatenAt: meal.eaten_at,
-    day: bangkokDayKey(meal.eaten_at),
+    day: dayKey(meal.eaten_at, timeZone),
     calories: meal.calories,
     protein: meal.protein,
     carbs: meal.carbs,

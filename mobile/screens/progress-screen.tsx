@@ -4,7 +4,7 @@ import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { Meal } from "../lib/app-state";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { bangkokTime, type DayKey } from "../lib/date-range";
+import { timeOfDay, type DayKey } from "../lib/date-range";
 import { bmiCategory, calculateBmi } from "../lib/profile";
 import { useDayDetails } from "../lib/use-day-details";
 import { useWeekSummary } from "../lib/use-week-summary";
@@ -525,7 +525,7 @@ function DayDetailsPanel({ day }: { day: DaySummary }) {
             <Text style={styles.walkRowText}>
               {`${minutes(walk.durationSeconds)} min · ~${walk.caloriesBurned} kcal`}
             </Text>
-            <Text style={styles.muted}>{bangkokTime(walk.completedAt)}</Text>
+            <Text style={styles.muted}>{timeOfDay(walk.completedAt)}</Text>
           </View>
         ))
       )}

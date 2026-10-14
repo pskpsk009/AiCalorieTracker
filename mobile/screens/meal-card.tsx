@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { styles } from "../styles";
 import type { Meal } from "../lib/app-state";
-import { bangkokTime } from "../lib/date-range";
+import { timeOfDay } from "../lib/date-range";
 
 /** Without `onDelete` the card is read-only (e.g. when browsing past days). */
 export function MealCard({ meal, onDelete }: { meal: Meal; onDelete?: () => void }) {
@@ -15,7 +15,7 @@ export function MealCard({ meal, onDelete }: { meal: Meal; onDelete?: () => void
       <Text style={styles.mealEmoji}>{meal.emoji}</Text>
       <View style={styles.mealInfo}>
         <Text style={styles.eyebrow}>
-          {meal.eatenAt ? `${meal.type.toUpperCase()} · ${bangkokTime(meal.eatenAt)}` : meal.type}
+          {meal.eatenAt ? `${meal.type.toUpperCase()} · ${timeOfDay(meal.eatenAt)}` : meal.type}
         </Text>
         <Text style={styles.mealName} numberOfLines={1} ellipsizeMode="tail">
           {meal.name}

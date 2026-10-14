@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 import { Alert } from "react-native";
 import { useAppState } from "./lib/app-state";
 import { analyzeMeal } from "./lib/meal-analysis";
-import { bangkokDayKey } from "./lib/date-range";
+import { dayKey } from "./lib/date-range";
 import { isDayConfirmed, setDayConfirmed } from "./lib/day-confirmations";
 import { deleteMeal, getMeals, saveMeal } from "./lib/meals";
-import { getProfile, saveProfileMeasurements } from "./lib/profile";
+import {
+  getProfile,
+  saveProfileMeasurements,
+  saveProfileTimeZone,
+  type ProfileData,
+} from "./lib/profile";
+import { getDeviceTimeZone } from "./lib/timezone";
 import { getWalkingSessions, saveWalkingSession } from "./lib/walking";
 import { supabase } from "./lib/supabase";
 import { AddMealScreen } from "./screens/add-meal-screen";
@@ -54,6 +60,8 @@ export function GetFitApp({
     setWeightKg,
     heightCm,
     setHeightCm,
+    timeZone,
+    setTimeZone,
   } = useAppState();
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [mealsLoading, setMealsLoading] = useState(false);
@@ -77,10 +85,25 @@ export function GetFitApp({
     else navigate(fallback);
   };
 
-  const navigateAfterAuth = async () => {
-    const profile = await getProfile();
+  // Put a freshly loaded profile into app state. A profile without a time zone gets the
+  // device's zone, saved once so the database (weight-history dates) agrees with the app.
+  const applyProfile = (profile: ProfileData) => {
     setWeightKg(profile.weightKg);
     setHeightCm(profile.heightCm);
+    if (profile.timeZone) {
+      setTimeZone(profile.timeZone);
+      return;
+    }
+    const deviceZone = getDeviceTimeZone();
+    if (deviceZone) {
+      setTimeZone(deviceZone);
+      void saveProfileTimeZone(deviceZone).catch(() => undefined);
+    }
+  };
+
+  const navigateAfterAuth = async () => {
+    const profile = await getProfile();
+    applyProfile(profile);
     const needsProfile = profile.weightKg === null || profile.heightCm === null;
     router.replace(needsProfile ? "/profile" : "/home");
   };
@@ -89,8 +112,7 @@ export function GetFitApp({
     if (!checkingProfile) return;
     void getProfile()
       .then((profile) => {
-        setWeightKg(profile.weightKg);
-        setHeightCm(profile.heightCm);
+        applyProfile(profile);
         if (profile.weightKg === null || profile.heightCm === null) {
           setRequiredProfile(true);
           setScreen("profile");
@@ -102,7 +124,7 @@ export function GetFitApp({
 
   const loadMeals = async () => {
     // Loaded on its own so Home still works if the confirmations table isn't migrated yet.
-    void isDayConfirmed(bangkokDayKey(new Date()))
+    void isDayConfirmed(dayKey(new Date()))
       .then(setTodayConfirmed)
       .catch(() => setTodayConfirmed(null));
     setMealsError(null);
@@ -125,10 +147,7 @@ export function GetFitApp({
   useEffect(() => {
     if (screen !== "profile") return;
     void getProfile()
-      .then((profile) => {
-        setWeightKg(profile.weightKg);
-        setHeightCm(profile.heightCm);
-      })
+      .then(applyProfile)
       .catch(() => undefined);
   }, [screen]);
 
@@ -291,6 +310,11 @@ export function GetFitApp({
         onHome={() => navigate("home")}
         onProgress={() => navigate("progress")}
         onChangePassword={() => navigate("change-password")}
+        timeZone={timeZone}
+        onChangeTimeZone={async (next) => {
+          await saveProfileTimeZone(next);
+          setTimeZone(next);
+        }}
         onSignOut={async () => {
           const { error } = await supabase.auth.signOut();
           if (error) throw error;
@@ -310,7 +334,7 @@ export function GetFitApp({
       onReloadMeals={loadMeals}
       todayConfirmed={todayConfirmed}
       onSetTodayConfirmed={async (confirmed) => {
-        await setDayConfirmed(bangkokDayKey(new Date()), confirmed);
+        await setDayConfirmed(dayKey(new Date()), confirmed);
         setTodayConfirmed(confirmed);
       }}
       savedBurned={savedBurned}

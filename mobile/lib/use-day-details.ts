@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DayKey } from "./date-range";
+import { useAppState } from "./app-state";
 import { getDayDetails, type DayDetails } from "./day-details";
 
 /** Loads a day's meals and walks the first time `enabled` becomes true, then keeps them. */
 export function useDayDetails(day: DayKey, enabled: boolean) {
+  const { timeZone } = useAppState();
   const [details, setDetails] = useState<DayDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,13 +14,13 @@ export function useDayDetails(day: DayKey, enabled: boolean) {
     setError(null);
     setLoading(true);
     try {
-      setDetails(await getDayDetails(day));
+      setDetails(await getDayDetails(day, timeZone));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load this day.");
     } finally {
       setLoading(false);
     }
-  }, [day]);
+  }, [day, timeZone]);
 
   useEffect(() => {
     if (enabled && !details && !loading && !error) void load();

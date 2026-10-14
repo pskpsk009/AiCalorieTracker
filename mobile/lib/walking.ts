@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
-import { bangkokDayKey, getThailandTodayBounds, type DateRange, type DayKey } from "./date-range";
+import { dayKey, getTodayBounds, type DateRange, type DayKey } from "./date-range";
+import { getAppTimeZone } from "./timezone";
 
 export type SaveWalkingSessionInput = {
   durationSeconds: number;
@@ -14,7 +15,7 @@ export type WalkingSession = SaveWalkingSessionInput & {
   createdAt: string;
 };
 
-/** A completed session, tagged with the Bangkok day it finished on. */
+/** A completed session, tagged with the local day it finished on. */
 export type WalkingRecord = WalkingSession & { completedAt: string; day: DayKey };
 
 const WALKING_KCAL_PER_MINUTE = 5;
@@ -76,7 +77,7 @@ export async function getWalkingSessions(): Promise<WalkingSession[]> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
   if (!userData.user) throw new Error("Please sign in before loading walking sessions.");
-  const records = await getWalkingRecordsInRange(userData.user.id, getThailandTodayBounds());
+  const records = await getWalkingRecordsInRange(userData.user.id, getTodayBounds());
   return records.reverse();
 }
 
@@ -84,6 +85,7 @@ export async function getWalkingSessions(): Promise<WalkingSession[]> {
 export async function getWalkingRecordsInRange(
   userId: string,
   range: DateRange,
+  timeZone = getAppTimeZone(),
 ): Promise<WalkingRecord[]> {
   const { data, error } = await supabase
     .from("walking_sessions")
@@ -99,6 +101,6 @@ export async function getWalkingRecordsInRange(
   return data.map((row) => ({
     ...toSession(row),
     completedAt: row.completed_at!,
-    day: bangkokDayKey(row.completed_at!),
+    day: dayKey(row.completed_at!, timeZone),
   }));
 }
