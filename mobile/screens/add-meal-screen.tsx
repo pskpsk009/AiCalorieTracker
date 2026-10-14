@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import { Image, Pressable, SafeAreaView, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../styles";
 import { Button, Header } from "./shared";
 

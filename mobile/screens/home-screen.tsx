@@ -1,9 +1,12 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { Meal } from "../lib/app-state";
+import { estimateWalkingCalories } from "../lib/walking";
 import { styles } from "../styles";
-import { Button, Header } from "./shared";
+import { Button, Header, PartialEnergyCard } from "./shared";
+import { BottomNav } from "./bottom-nav";
 import { MealCard } from "./meal-card";
 
 export function HomeScreen({
@@ -11,6 +14,8 @@ export function HomeScreen({
   mealsLoading,
   mealsError,
   onReloadMeals,
+  todayConfirmed,
+  onSetTodayConfirmed,
   savedBurned,
   onSaveSession,
   onAdd,
@@ -22,10 +27,13 @@ export function HomeScreen({
   mealsLoading: boolean;
   mealsError: string | null;
   onReloadMeals: () => void;
+  /** null while unknown (loading, or the confirmations table isn't available). */
+  todayConfirmed: boolean | null;
+  onSetTodayConfirmed: (confirmed: boolean) => Promise<void>;
   savedBurned: number;
   onSaveSession: (durationSeconds: number, caloriesBurned: number) => Promise<void>;
   onAdd: () => void;
-  onDelete: (id: number) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onProgress: () => void;
   onProfile: () => void;
 }) {
@@ -33,6 +41,7 @@ export function HomeScreen({
     "idle",
   );
   const [elapsed, setElapsed] = useState(0);
+  const [savingConfirmed, setSavingConfirmed] = useState(false);
   const [savingWalking, setSavingWalking] = useState(false);
   const [walkingError, setWalkingError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -81,7 +90,7 @@ export function HomeScreen({
 
   const estimatedMinutes = Math.max(1, Math.round(totals.calories * 0.15));
   const timerText = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
-  const burned = elapsed > 0 ? Math.max(1, Math.round((elapsed / 60) * 5)) : 0;
+  const burned = estimateWalkingCalories(elapsed);
   const resetWalking = () => {
     setElapsed(0);
     setWalkingStatus("idle");
@@ -98,7 +107,19 @@ export function HomeScreen({
       setSavingWalking(false);
     }
   };
-  const handleDelete = async (mealId: number) => {
+  const toggleTodayConfirmed = async () => {
+    if (todayConfirmed === null || savingConfirmed) return;
+    setDeleteError(null);
+    setSavingConfirmed(true);
+    try {
+      await onSetTodayConfirmed(!todayConfirmed);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not update today's log.");
+    } finally {
+      setSavingConfirmed(false);
+    }
+  };
+  const handleDelete = async (mealId: string) => {
     setDeleteError(null);
     try {
       await onDelete(mealId);
@@ -106,10 +127,9 @@ export function HomeScreen({
       setDeleteError(error instanceof Error ? error.message : "Could not delete this meal.");
     }
   };
-  const netCalories = totals.calories - savedBurned;
-  const calorieDifference = netCalories - 1800;
 
-  if (mealsLoading)
+  // Only block the screen on the very first load; afterwards refresh behind cached meals.
+  if (mealsLoading && meals.length === 0)
     return (
       <SafeAreaView style={styles.safe}>
         <Header />
@@ -157,6 +177,26 @@ export function HomeScreen({
         {meals.map((meal) => (
           <MealCard key={meal.id} meal={meal} onDelete={() => void handleDelete(meal.id)} />
         ))}
+        {todayConfirmed !== null && (
+          <Pressable
+            style={styles.dayComplete}
+            onPress={() => void toggleTodayConfirmed()}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: todayConfirmed, busy: savingConfirmed }}
+          >
+            <View style={[styles.dayCompleteBox, todayConfirmed && styles.dayCompleteBoxOn]}>
+              {todayConfirmed && <Text style={styles.dayCompleteCheck}>✓</Text>}
+            </View>
+            <View style={styles.dayCompleteText}>
+              <Text style={styles.dayCompleteTitle}>Today's food log is complete</Text>
+              <Text style={styles.muted}>
+                {meals.length === 0
+                  ? "Tick this if you really ate nothing today, so it counts as 0 kcal instead of not logged."
+                  : "Tick this once you've logged everything you ate today."}
+              </Text>
+            </View>
+          </Pressable>
+        )}
         {walkingStatus === "complete" ? (
           <View style={styles.completeCard}>
             <View style={styles.completeHeader}>
@@ -249,45 +289,18 @@ export function HomeScreen({
           </View>
         )}
         {savedBurned > 0 && (
-          <View style={styles.calorieCard}>
-            <View style={styles.calorieHeading}>
-              <Text style={styles.fire}>♨</Text>
-              <Text style={styles.calorieTitle}>Calorie Summary</Text>
-            </View>
-            <View style={styles.calorieLine}>
-              <Text style={styles.muted}>Consumed</Text>
-              <Text style={styles.calorieValue}>{totals.calories.toLocaleString()} kcal</Text>
-            </View>
-            <View style={styles.calorieLine}>
-              <Text style={styles.muted}>Burned walking</Text>
-              <Text style={styles.burnedValue}>- {savedBurned} kcal</Text>
-            </View>
-            <View style={styles.calorieDivider} />
-            <View style={styles.calorieLine}>
-              <Text style={styles.netLabel}>Net Calories</Text>
-              <Text style={styles.netValue}>{netCalories.toLocaleString()} kcal</Text>
-            </View>
-            <View style={styles.deficit}>
-              <Text style={styles.deficitLabel}>COMPARED WITH YOUR 1,800 KCAL REFERENCE</Text>
-              <Text style={styles.deficitValue}>
-                {Math.abs(calorieDifference).toLocaleString()} kcal{" "}
-                {calorieDifference > 0 ? "surplus" : calorieDifference < 0 ? "deficit" : "balanced"}
-              </Text>
-            </View>
-          </View>
+          <PartialEnergyCard
+            title="Today's food and walking"
+            food={totals.calories}
+            walking={savedBurned}
+            style={styles.calorieCard}
+          />
         )}
       </ScrollView>
-      <View style={styles.bottomNav}>
-        <View style={styles.navActive}>
-          <Text style={styles.navActiveText}>⌂ Home</Text>
-        </View>
-        <Pressable style={styles.navItemButton} onPress={onProgress}>
-          <Text style={styles.navItemText}>▥ Progress</Text>
-        </Pressable>
-        <Pressable style={styles.navItemButton} onPress={onProfile}>
-          <Text style={styles.navItemText}>◉ Profile</Text>
-        </Pressable>
-      </View>
+      <BottomNav
+        active="home"
+        onNavigate={(tab) => (tab === "progress" ? onProgress() : onProfile())}
+      />
       <StatusBar style="dark" />
     </SafeAreaView>
   );

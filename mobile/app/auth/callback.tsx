@@ -1,7 +1,8 @@
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 
 export default function AuthCallback() {
@@ -21,6 +22,8 @@ export default function AuthCallback() {
       const hashParams = new URLSearchParams(hash);
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
+      const isRecovery =
+        hashParams.get("type") === "recovery" || parsed.queryParams?.type === "recovery";
       const errorDescription = parsed.queryParams?.error_description;
       if (errorDescription) {
         setMessage(String(errorDescription));
@@ -41,7 +44,7 @@ export default function AuthCallback() {
         setFinished(true);
         return;
       }
-      router.replace("/home");
+      router.replace(isRecovery ? "/change-password?recovery=1" : "/home");
     };
 
     Linking.getInitialURL().then(finishAuth);

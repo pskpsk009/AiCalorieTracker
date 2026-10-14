@@ -1,16 +1,19 @@
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { SafeAreaView, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../styles";
 import { Button, Header } from "./shared";
 
 export function AuthScreen({
   register,
   onToggle,
+  onForgotPassword,
   onSubmit,
 }: {
   register: boolean;
   onToggle: () => void;
+  onForgotPassword: () => void;
   onSubmit: (values: {
     name: string;
     email: string;
@@ -72,6 +75,11 @@ export function AuthScreen({
           secureTextEntry
           style={styles.input}
         />
+        {!register && (
+          <Pressable onPress={onForgotPassword}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </Pressable>
+        )}
         {register && (
           <TextInput
             placeholder="Confirm password"

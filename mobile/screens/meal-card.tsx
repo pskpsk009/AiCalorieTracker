@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { styles } from "../styles";
 import type { Meal } from "../lib/app-state";
+import { bangkokTime } from "../lib/date-range";
 
-export function MealCard({ meal, onDelete }: { meal: Meal; onDelete: () => void }) {
+/** Without `onDelete` the card is read-only (e.g. when browsing past days). */
+export function MealCard({ meal, onDelete }: { meal: Meal; onDelete?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const visibleItems = expanded ? (meal.items ?? []) : (meal.items ?? []).slice(0, 3);
   const hasMore = (meal.items?.length ?? 0) > 3;
@@ -12,7 +14,9 @@ export function MealCard({ meal, onDelete }: { meal: Meal; onDelete: () => void 
     <View style={styles.meal}>
       <Text style={styles.mealEmoji}>{meal.emoji}</Text>
       <View style={styles.mealInfo}>
-        <Text style={styles.eyebrow}>{meal.type}</Text>
+        <Text style={styles.eyebrow}>
+          {meal.eatenAt ? `${meal.type.toUpperCase()} · ${bangkokTime(meal.eatenAt)}` : meal.type}
+        </Text>
         <Text style={styles.mealName} numberOfLines={1} ellipsizeMode="tail">
           {meal.name}
         </Text>
@@ -34,18 +38,20 @@ export function MealCard({ meal, onDelete }: { meal: Meal; onDelete: () => void 
         <Text style={styles.mealCalories}>
           {meal.calories} <Text style={styles.mealKcal}>kcal</Text>
         </Text>
-        <Pressable
-          style={styles.deleteButton}
-          onPress={() =>
-            Alert.alert("Delete meal?", `Remove ${meal.name} from today's meals?`, [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: onDelete },
-            ])
-          }
-        >
-          <Text style={styles.deleteIcon}>⌫</Text>
-          <Text style={styles.delete}>Delete</Text>
-        </Pressable>
+        {onDelete && (
+          <Pressable
+            style={styles.deleteButton}
+            onPress={() =>
+              Alert.alert("Delete meal?", `Remove ${meal.name} from today's meals?`, [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: onDelete },
+              ])
+            }
+          >
+            <Text style={styles.deleteIcon}>⌫</Text>
+            <Text style={styles.delete}>Delete</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

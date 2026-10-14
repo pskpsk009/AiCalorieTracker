@@ -9,7 +9,7 @@ import {
 import type { AnalyzedMealItem } from "./meal-analysis";
 
 export type Meal = {
-  id: number;
+  id: string;
   type: string;
   emoji: string;
   name: string;
@@ -18,6 +18,7 @@ export type Meal = {
   carbs: number;
   fat: number;
   items?: MealItem[];
+  eatenAt?: string;
 };
 
 export type MealItem = {

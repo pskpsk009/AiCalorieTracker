@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { SafeAreaView, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { AnalyzedMealItem } from "../lib/meal-analysis";
 import { styles } from "../styles";
 import { Button, Header } from "./shared";
